@@ -7,6 +7,7 @@ except ImportError:  # django < 1.7
     from django.contrib.contenttypes.generic import GenericForeignKey
 from django.db import models, IntegrityError, transaction
 from django.db.models.query import QuerySet
+from django.core.urlresolvers import reverse
 from django.template.defaultfilters import slugify as default_slugify
 from django.utils.translation import ugettext_lazy as _, ugettext
 from django.utils.encoding import python_2_unicode_compatible
@@ -80,10 +81,25 @@ class TagBase(models.Model):
         return slug
 
 
+@python_2_unicode_compatible
 class Tag(TagBase):
+    namespace = models.CharField(_('namespace'), max_length=100, blank=True, null=True)
+
+    def __str__(self):
+        name = self.name.partition(":")[2] if self.name.partition(":")[1] == ":" else self.name
+        return name
+
+    def save(self, *args, **kwargs):
+        self.namespace = self.name.partition(":")[0] if self.name.partition(":")[1] == ":" else ''
+        return super(Tag, self).save(*args, **kwargs)
+
     class Meta:
         verbose_name = _("Tag")
         verbose_name_plural = _("Tags")
+        ordering = ['namespace', 'name']
+
+    def get_absolute_url(self):
+        return reverse('taggit_tag', kwargs={'tag_slug': self.slug})
 
 
 @python_2_unicode_compatible
