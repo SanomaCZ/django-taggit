@@ -1,5 +1,7 @@
 from __future__ import unicode_literals, absolute_import
 
+from mock import patch
+
 from unittest import TestCase as UnitTestCase
 try:
     from unittest import skipIf, skipUnless
@@ -483,6 +485,13 @@ class TagStringParseTestCase(UnitTestCase):
         self.assertEqual(parse_tags('one two three'), ['one', 'three', 'two'])
         self.assertEqual(parse_tags('one one two two'), ['one', 'two'])
 
+    @patch('taggit.utils.settings')
+    def test_with_simple_space_delimited_tags_disabled_space_split(self, mocked_settings):
+        mocked_settings.TAGGIT_ENABLE_SPACE_SPLIT_IF_NOT_QUOTES = False
+        self.assertEqual(parse_tags('one'), [u'one'])
+        self.assertEqual(parse_tags('one two'), [u'one two'])
+        self.assertEqual(parse_tags('one two three'), [u'one two three'])
+
     def test_with_comma_delimited_multiple_words(self):
         """
         Test with comma-delimited multiple words.
@@ -493,6 +502,15 @@ class TagStringParseTestCase(UnitTestCase):
         self.assertEqual(parse_tags(',one two three'), ['one two three'])
         self.assertEqual(parse_tags('a-one, a-two and a-three'),
             ['a-one', 'a-two and a-three'])
+
+    @patch('taggit.utils.settings')
+    def test_with_comma_delimited_multiple_words_disabled_space_split(self, mocked_settings):
+        mocked_settings.TAGGIT_ENABLE_SPACE_SPLIT_IF_NOT_QUOTES = False
+        self.assertEqual(parse_tags(',one'), [u'one'])
+        self.assertEqual(parse_tags(',one two'), [u'one two'])
+        self.assertEqual(parse_tags(',one two three'), [u'one two three'])
+        self.assertEqual(parse_tags('a one, a-two and a-three'),
+            [u'a one', u'a-two and a-three'])
 
     def test_with_double_quoted_multiple_words(self):
         """
@@ -506,17 +524,34 @@ class TagStringParseTestCase(UnitTestCase):
         self.assertEqual(parse_tags('a-one "a-two and a-three"'),
             ['a-one', 'a-two and a-three'])
 
+    @patch('taggit.utils.settings')
+    def test_with_double_quoted_multiple_words_disabled_space_split(self, mocked_settings):
+        mocked_settings.TAGGIT_ENABLE_SPACE_SPLIT_IF_NOT_QUOTES = False
+        self.assertEqual(parse_tags('"one two"'), [u'one two'])
+        self.assertEqual(parse_tags('a one "a-two and a-three"'),
+            [u'a one', u'a-two and a-three'])
+
     def test_with_no_loose_commas(self):
         """
         Test with no loose commas -- split on spaces.
         """
         self.assertEqual(parse_tags('one two "thr,ee"'), ['one', 'thr,ee', 'two'])
 
+    @patch('taggit.utils.settings')
+    def test_with_no_loose_commas_disabled_space_split(self, mocked_settings):
+        mocked_settings.TAGGIT_ENABLE_SPACE_SPLIT_IF_NOT_QUOTES = False
+        self.assertEqual(parse_tags('one two "thr,ee"'), [u'one two', u'thr,ee'])
+
     def test_with_loose_commas(self):
         """
         Loose commas - split on commas
         """
         self.assertEqual(parse_tags('"one", two three'), ['one', 'two three'])
+
+    @patch('taggit.utils.settings')
+    def test_with_loose_commas_disabled_space_split(self, mocked_settings):
+        mocked_settings.TAGGIT_ENABLE_SPACE_SPLIT_IF_NOT_QUOTES = False
+        self.assertEqual(parse_tags('"one", two three'), [u'one', u'two three'])
 
     def test_tags_with_double_quotes_can_contain_commas(self):
         """
@@ -526,6 +561,14 @@ class TagStringParseTestCase(UnitTestCase):
             ['a-one', 'a-two, and a-three'])
         self.assertEqual(parse_tags('"two", one, one, two, "one"'),
             ['one', 'two'])
+
+    @patch('taggit.utils.settings')
+    def test_tags_with_double_quotes_can_contain_commas_disabled_space_split(self, mocked_settings):
+        mocked_settings.TAGGIT_ENABLE_SPACE_SPLIT_IF_NOT_QUOTES = False
+        self.assertEqual(parse_tags('a-one "a-two, and a-three"'),
+            [u'a-one', u'a-two, and a-three'])
+        self.assertEqual(parse_tags('"two", one, one, two, "one"'),
+            [u'one', u'two'])
 
     def test_with_naughty_input(self):
         """
