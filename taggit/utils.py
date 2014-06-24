@@ -4,6 +4,8 @@ from django.utils.encoding import force_text
 from django.utils.functional import wraps
 from django.utils import six
 
+from taggit import settings
+
 
 def parse_tags(tagstring):
     """
@@ -18,6 +20,9 @@ def parse_tags(tagstring):
     """
     if not tagstring:
         return []
+
+    if not settings.TAGGIT_ENABLE_SPACE_SPLIT_IF_NOT_QUOTES:
+        tagstring = "".join([tagstring.strip().rstrip(","), ","])
 
     tagstring = force_text(tagstring)
 
