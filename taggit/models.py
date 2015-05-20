@@ -1,16 +1,20 @@
 from __future__ import unicode_literals
 
 from django.contrib.contenttypes.models import ContentType
+from django.db import IntegrityError, models, transaction
+from django.db.models.query import QuerySet
+from django.template.defaultfilters import slugify as default_slugify
+from django.utils.encoding import python_2_unicode_compatible
+from django.utils.translation import ugettext_lazy as _
+from django.utils.translation import ugettext
+from django.core.urlresolvers import reverse
+
+from taggit.utils import _get_field
+
 try:
     from django.contrib.contenttypes.fields import GenericForeignKey
 except ImportError:  # django < 1.7
     from django.contrib.contenttypes.generic import GenericForeignKey
-from django.db import models, IntegrityError, transaction
-from django.db.models.query import QuerySet
-from django.core.urlresolvers import reverse
-from django.template.defaultfilters import slugify as default_slugify
-from django.utils.translation import ugettext_lazy as _, ugettext
-from django.utils.encoding import python_2_unicode_compatible
 
 
 try:
@@ -60,7 +64,7 @@ class TagBase(models.Model):
             except IntegrityError:
                 pass
             # Now try to find existing slugs with similar names
-            slugs = set(Tag.objects.filter(slug__startswith=self.slug)\
+            slugs = set(Tag.objects.filter(slug__startswith=self.slug)
                                    .values_list('slug', flat=True))
             i = 1
             while True:
@@ -115,11 +119,11 @@ class ItemBase(models.Model):
 
     @classmethod
     def tag_model(cls):
-        return cls._meta.get_field_by_name("tag")[0].rel.to
+        return _get_field(cls, 'tag').rel.to
 
     @classmethod
     def tag_relname(cls):
-        return cls._meta.get_field_by_name('tag')[0].rel.related_name
+        return _get_field(cls, 'tag').rel.related_name
 
     @classmethod
     def lookup_kwargs(cls, instance):
@@ -141,14 +145,17 @@ class TaggedItemBase(ItemBase):
         abstract = True
 
     @classmethod
-    def tags_for(cls, model, instance=None):
+    def tags_for(cls, model, instance=None, **extra_filters):
+        kwargs = extra_filters or {}
         if instance is not None:
-            return cls.tag_model().objects.filter(**{
+            kwargs.update({
                 '%s__content_object' % cls.tag_relname(): instance
             })
-        return cls.tag_model().objects.filter(**{
+            return cls.tag_model().objects.filter(**kwargs)
+        kwargs.update({
             '%s__content_object__isnull' % cls.tag_relname(): False
-        }).distinct()
+        })
+        return cls.tag_model().objects.filter(**kwargs).distinct()
 
 
 class GenericTaggedItemBase(ItemBase):
@@ -161,7 +168,7 @@ class GenericTaggedItemBase(ItemBase):
     content_object = GenericForeignKey()
 
     class Meta:
-        abstract=True
+        abstract = True
 
     @classmethod
     def lookup_kwargs(cls, instance):
@@ -186,13 +193,15 @@ class GenericTaggedItemBase(ItemBase):
             }
 
     @classmethod
-    def tags_for(cls, model, instance=None):
+    def tags_for(cls, model, instance=None, **extra_filters):
         ct = ContentType.objects.get_for_model(model)
         kwargs = {
             "%s__content_type" % cls.tag_relname(): ct
         }
         if instance is not None:
             kwargs["%s__object_id" % cls.tag_relname()] = instance.pk
+        if extra_filters:
+            kwargs.update(extra_filters)
         return cls.tag_model().objects.filter(**kwargs).distinct()
 
 
